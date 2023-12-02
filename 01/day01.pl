@@ -29,21 +29,23 @@ alphanums([H|T]) --> [H], {char_type(H, alphanumeric)}, alphanums(T).
 alphanums([]) --> [].
 
 % these doubles wrecked me, this is the lazy approach to fixing it once I realised
-parse_replace(X) --> "twone",  {number_chars(2, C2), number_chars(1, C1), append(C2, C1, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "eightwo",  {number_chars(8, C8), number_chars(2, C2), append(C8, C2, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "eighthree",  {number_chars(8, C8), number_chars(3, C3), append(C8, C3, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "sevenine",  {number_chars(7, C7), number_chars(9, C9), append(C7, C9, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "oneight",  {number_chars(1, C1), number_chars(8, C8), append(C1, C8, C), append(C, T, X)}, parse_replace(T).
+parse_replace(X) --> "twone",  {append("21", T, X)}, parse_replace(T).
+parse_replace(X) --> "eightwo",  {append("82", T, X)}, parse_replace(T).
+parse_replace(X) --> "eighthree",  {append("83", T, X)}, parse_replace(T).
+parse_replace(X) --> "sevenine",  {append("79", T, X)}, parse_replace(T).
+parse_replace(X) --> "oneight",  {append("18", T, X)}, parse_replace(T).
+parse_replace(X) --> "threeight",  {append("38", T, X)}, parse_replace(T).
+parse_replace(X) --> "fiveight",  {append("58", T, X)}, parse_replace(T).
 % parse_replace(['1'|T]) wasnt working, this should be simpler somehow
-parse_replace(X) --> "one",   {number_chars(1, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "two",   {number_chars(2, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "three", {number_chars(3, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "four",  {number_chars(4, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "five",  {number_chars(5, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "six",   {number_chars(6, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "seven", {number_chars(7, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "eight", {number_chars(8, C), append(C, T, X)}, parse_replace(T).
-parse_replace(X) --> "nine",  {number_chars(9, C), append(C, T, X)}, parse_replace(T).
+parse_replace(X) --> "one",   {append("1", T, X)}, parse_replace(T).
+parse_replace(X) --> "two",   {append("2", T, X)}, parse_replace(T).
+parse_replace(X) --> "three", {append("3", T, X)}, parse_replace(T).
+parse_replace(X) --> "four",  {append("4", T, X)}, parse_replace(T).
+parse_replace(X) --> "five",  {append("5", T, X)}, parse_replace(T).
+parse_replace(X) --> "six",   {append("6", T, X)}, parse_replace(T).
+parse_replace(X) --> "seven", {append("7", T, X)}, parse_replace(T).
+parse_replace(X) --> "eight", {append("8", T, X)}, parse_replace(T).
+parse_replace(X) --> "nine",  {append("9", T, X)}, parse_replace(T).
 parse_replace([H|T]) --> [H], { char_type(H,alphanumeric) }, parse_replace(T).
 parse_replace([]) --> "\n".
 
