@@ -2,12 +2,22 @@
 
 run_day(3, Filename) :-
     phrase_from_file(parse(0,0), Filename),
-    findall(N-X-Z-Y, number(N, X-Z, Y), Numbers),
-    maplist(part_number, Numbers, PartNumbers),
+    part1,
+    part2.
+
+part1 :-
+    findall(N, (
+        number(N, X-Z, Y),
+        part_number(N-X-Z-Y)
+        ), PartNumbers),
     sum(PartNumbers, #=, Ans1),
-    write_part1(Ans1),
-    findall(X-Y, symbol('*', X, Y), GearSymbols),
-    maplist(gear_ratio, GearSymbols, Ratios),
+    write_part1(Ans1).
+
+part2 :-
+    findall(Ratio, (
+        symbol('*', X, Y),
+        gear_ratio(X-Y, Ratio)
+        ), Ratios),
     sum(Ratios, #=, Ans2),
     write_part2(Ans2).
 
@@ -17,20 +27,13 @@ adjacent(_-FromX-ToX-Y, SX-SY) :-
     SY #=< Y+1,
     SY #>= Y-1.
 
-% if P is not a proper part number, N = 0
-part_number(P, N) :-
-    ( (symbol(_,SX,SY), adjacent(P,SX-SY)) -> 
-        P = N-_-_-_
-        ; N #= 0
-        ).
+part_number(P) :-
+    symbol(_,SX,SY),
+    adjacent(P,SX-SY).
 
-% if X-Y is not a proper gear, Ratio = 0
 gear_ratio(X-Y, Ratio) :-
-    findall(N, (number(N, NX-NZ, NY), adjacent(N-NX-NZ-NY, X-Y)), AdjacentNums),
-    ( AdjacentNums = [A,B] -> 
-        Ratio #= A*B
-        ; Ratio #= 0
-        ).
+    findall(N, (number(N, NX-NZ, NY), adjacent(N-NX-NZ-NY, X-Y)), [A,B]),
+    Ratio #= A*B.
 
 parse(X,Y) --> ".", {Z #= X+1}, parse(Z,Y).
 parse(_,Y) --> "\n", {Z #= Y+1}, parse(0,Z).
