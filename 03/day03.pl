@@ -7,18 +7,29 @@ run_day(3, Filename) :-
     tfilter(part_number, Numbers, PartNumbers),
     maplist(num, PartNumbers, Nums),
     sum(Nums, #=, Ans1),
-    write_part1(Ans1).
+    write_part1(Ans1),
+    findall(X-Y, symbol('*', X, Y), GearSymbols),
+    maplist(gear_ratio, GearSymbols, Ratios),
+    sum(Ratios, #=, Ans2),
+    write_part2(Ans2).
 
 num(N-_-_-_, N).
 part_number(P, T) :-
-    ( next_to_symbol(P) -> T = true ; T = false ).
+    ( (symbol(_,SX,SY), adjacent(P,SX-SY)) -> T = true ; T = false ).
 
-next_to_symbol(_-FromX-ToX-Y) :-
-    symbol(_, SX, SY),
+adjacent(_-FromX-ToX-Y, SX-SY) :-
     SX #>= FromX - 1,
     SX #=< ToX + 1,
     SY #=< Y+1,
     SY #>= Y-1.
+
+% if X-Y is not a proper gear, Ratio = 0
+gear_ratio(X-Y, Ratio) :-
+    findall(N, (number(N, NX-NZ, NY), adjacent(N-NX-NZ-NY, X-Y)), AdjacentNums),
+    ( AdjacentNums = [A,B] -> 
+        Ratio #= A*B
+        ; Ratio #= 0
+        ).
 
 parse(X,Y) --> ".", {Z #= X+1}, parse(Z,Y).
 parse(_,Y) --> "\n", {Z #= Y+1}, parse(0,Z).
