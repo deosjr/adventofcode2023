@@ -14,17 +14,12 @@ lookup(From, X, To, Y) :-
     X #>= Source, X #< Source + Len,
     Dif #= X - Source,
     Y #= Dest + Dif.
-
-transform(From, X, To, Y) :-
-    ( lookup(From, X, To, N) ->
-        Y #= N ;
-        lookup(From, _, To, _),
-        Y #= X
-        ).
+lookup(From, X, To, X) :-
+    almanac(From, To, _, _, _).
 
 find(From, X, From, X).
 find(From, X, End, Y) :-
-    transform(From, X, To, N),
+    lookup(From, X, To, N),
     find(To, N, End, Y).
 
 parse(Seeds) --> "seeds: ", intlist(Seeds), "\n", parse_map.
