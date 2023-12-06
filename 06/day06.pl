@@ -12,19 +12,11 @@ run_day(6, Filename) :-
     solve(Time-Distance, Ans2),
     write_part2(Ans2).
 
-% we are guaranteed at least one way to win each race
-% list of distances after calculation is symmetric
-solve(T-D, L) :-
-    solve(T, D, 0, L).
-
-solve(Time, Distance, Charge, Ways) :-
-    Millis #= (Time-Charge) * Charge,
-    ( Millis #> Distance ->
-        Ways #= Time + 1 - (2 * Charge) 
-        ;
-        N #= Charge + 1,
-        solve(Time, Distance, N, Ways)
-    ).
+solve(Time-Distance, L) :-
+    T2 #= Time*Time,
+    Sqrt is ceiling(sqrt(T2 - 4*Distance)),
+    C #= (-Time + Sqrt) // -2,
+    L #= Time+1 - (2*(C+1)).
 
 parse(T,D) --> "Time:", intlist(T), "\nDistance:", intlist(D), "\n".
 
