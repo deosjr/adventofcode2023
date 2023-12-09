@@ -1,3 +1,4 @@
+:- use_module(library(arithmetic)).
 :- use_module(library(charsio)).
 
 run_day(8, Filename) :-
@@ -28,12 +29,6 @@ start([_,_|S]) :- S="A".
 
 step('L', From, To) :- node(From, To, _).
 step('R', From, To) :- node(From, _, To).
-
-lcm(X,Y,Z) :- Abs #= abs(X*Y), gcd(X,Y,G), Z #= Abs // G.
-
-gcd(X,X,X).
-gcd(X,Y,G) :- X#<Y, Y1 #= Y-X, gcd(X,Y1,G).
-gcd(X,Y,G) :- X#>Y, gcd(Y,X,G).
 
 parse(Instructions) --> letters(Instructions), "\n\n", parse.
 parse --> letters(From), " = (", letters(Left), ", ", letters(Right), ")\n", {assertz(node(From,Left,Right))}, parse.

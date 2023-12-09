@@ -1,3 +1,4 @@
+:- use_module(library(arithmetic)).
 :- use_module(library(charsio)).
 :- use_module(library(lambda)).
 
@@ -10,23 +11,19 @@ run_day(9, Filename) :-
     write_part2(Ans2).
 
 solve(List, Ans) :-
-    maplist(predict, List, Predicted),
+    maplist(predict([]), List, Predicted),
     sum(Predicted, #=, Ans).
 
-predict(List, Prediction) :-
-    predict(List, [], Prediction).
-
-predict(List, Lasts, Out) :-
+predict(Lasts, List, Out) :-
     List = [H|_],
     ( all_equal(List) ->
         extrapolate(H, Lasts, Out)
     ;
         reduce(List, Reduced),
-        predict(Reduced, [H|Lasts], Out)
+        predict([H|Lasts], Reduced, Out)
     ).
 
-extrapolate(N, List, Out) :-
-    foldl(\X^Y^Z^(Z#=X+Y), List, N, Out).
+extrapolate(N, List, Out) :- foldl(\X^Y^Z^(Z#=X+Y), List, N, Out).
 
 reduce([A,B], [X]) :- X #= A-B.
 reduce([A,B,C|T], [X|R]) :-
@@ -34,7 +31,7 @@ reduce([A,B,C|T], [X|R]) :-
     reduce([B,C|T], R).
 
 all_equal([H|T]) :-
-    maplist(=(H), T).
+    maplist(==(H), T).
 
 parse([H|T]) --> intlist(H), "\n", parse(T).
 parse([]) --> [].

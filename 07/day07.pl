@@ -56,22 +56,14 @@ reifycomp(N, N, =).
 hand_strength(CompPred, Hand1-T1-_, Hand2-T2-_, C) :-
     handcomp(CompPred, Hand1-T1, Hand2-T2, C).
 
-handcomp(_, _-T1, _-T2, >) :-
-    typecomp(T1, T2, >).
-handcomp(_, _-T1, _-T2, <) :-
-    typecomp(T1, T2, <).
 handcomp(Pred, H1-T1, H2-T2, C) :-
-    typecomp(T1, T2, =),
-    highcard(Pred, H1, H2, C).
+    typecomp(T1, T2, Comp),
+    ( Comp == (=) -> highcard(Pred, H1, H2, C) ; C=Comp ).
 
 highcard(_, [], [], =).
-highcard(Pred, [H1|_], [H2|_], >) :-
-    call(Pred, H1, H2, >).
-highcard(Pred, [H1|_], [H2|_], <) :-
-    call(Pred, H1, H2, <).
 highcard(Pred, [H1|T1], [H2|T2], C) :-
-    call(Pred, H1, H2, =),
-    highcard(Pred, T1, T2, C).
+    call(Pred, H1, H2, Comp),
+    ( Comp == (=) -> highcard(Pred, T1, T2, C) ; C=Comp ).
 
 types([five, four, fullhouse, three, two, one, high]).
 
