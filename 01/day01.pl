@@ -28,26 +28,21 @@ parse([X]) --> alphanums(X), "\n".
 alphanums([H|T]) --> [H], {char_type(H, alphanumeric)}, alphanums(T).
 alphanums([]) --> [].
 
-% these doubles wrecked me, this is the lazy approach to fixing it once I realised
-parse_replace(X) --> "twone",  {append("21", T, X)}, parse_replace(T).
-parse_replace(X) --> "eightwo",  {append("82", T, X)}, parse_replace(T).
-parse_replace(X) --> "eighthree",  {append("83", T, X)}, parse_replace(T).
-parse_replace(X) --> "sevenine",  {append("79", T, X)}, parse_replace(T).
-parse_replace(X) --> "oneight",  {append("18", T, X)}, parse_replace(T).
-parse_replace(X) --> "threeight",  {append("38", T, X)}, parse_replace(T).
-parse_replace(X) --> "fiveight",  {append("58", T, X)}, parse_replace(T).
-% parse_replace(['1'|T]) wasnt working, this should be simpler somehow
-parse_replace(X) --> "one",   {append("1", T, X)}, parse_replace(T).
-parse_replace(X) --> "two",   {append("2", T, X)}, parse_replace(T).
-parse_replace(X) --> "three", {append("3", T, X)}, parse_replace(T).
-parse_replace(X) --> "four",  {append("4", T, X)}, parse_replace(T).
-parse_replace(X) --> "five",  {append("5", T, X)}, parse_replace(T).
-parse_replace(X) --> "six",   {append("6", T, X)}, parse_replace(T).
-parse_replace(X) --> "seven", {append("7", T, X)}, parse_replace(T).
-parse_replace(X) --> "eight", {append("8", T, X)}, parse_replace(T).
-parse_replace(X) --> "nine",  {append("9", T, X)}, parse_replace(T).
-parse_replace([H|T]) --> [H], { char_type(H,alphanumeric) }, parse_replace(T).
-parse_replace([]) --> "\n".
+parse_replace('1'), "e" --> "one".
+parse_replace('2'), "o" --> "two".
+parse_replace('3'), "e" --> "three".
+parse_replace('4'), "r" --> "four".
+parse_replace('5'), "e" --> "five".
+parse_replace('6'), "x" --> "six".
+parse_replace('7'), "n" --> "seven".
+parse_replace('8'), "t" --> "eight".
+parse_replace('9'), "e" --> "nine".
+parse_replace(H) --> [H], { char_type(H,alphanumeric) }.
 
-parse2([H|T]) --> parse_replace(H), parse2(T).
+parse_line([], X, X).
+parse_line([H|T], X, DX) :-
+    phrase(parse_replace(H), X, DY),
+    parse_line(T, DY, DX).
+
 parse2([]) --> [].
+parse2([H|T]) --> parse_line(H), "\n", parse2(T).
