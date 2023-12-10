@@ -4,11 +4,17 @@ run_day(10, Filename) :-
     phrase_from_file(parse(0,0), Filename),
     loop(Ans1),
     write_part1(Ans1),
+    %pipe(C, none, east, none, west), % -
+    %part_of_loop(C), C=_-0,
+    %floodfill_inner(C, east, south),
     pipe(C, south, none, north, none), % |
     part_of_loop(C),
     can_reach_edge(C, west), % cant reach edge east is implied
     % now we know that at C, east is inside of loop
     % walk the loop, floodfilling inside
+    % TODO: why is there a difference in walking direction around the loop?
+    % why do I have to walk both ways in order to find all?!?
+    floodfill_inner(C, north, east),
     floodfill_inner(C, south, east),
     findall(Coord, filled(Coord), Inner),
     length(Inner, Ans2),
@@ -21,8 +27,6 @@ can_reach_edge(C, west) :-
     step(C, To, west),
     \+(part_of_loop(To)),
     can_reach_edge(To, west).
-
-use_test_input.
 
 loop(Ans) :-
     find_start(Start, InitialDir),
