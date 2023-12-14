@@ -14,13 +14,13 @@ run :-
     %phrase_from_file(parse(List), "12/test"),
     solve(List, Ans1),
     write(Ans1), nl,
-    maplist([X,Y]>>(X=S-G, write(S-G),nl, quintuple_join(S,S5), quintuple(G,G5), Y=S5-G5), List, Quints),
+    maplist([X,Y]>>(X=S-G, quintuple_join(S,S5), quintuple(G,G5), Y=S5-G5), List, Quints),
     solve(Quints, Ans2),
     write(Ans2), nl.
 
 solve(List, Ans) :-
     maplist([X,Y]>>(X=S-G,simplify([], S, Simple),Y=Simple-G), List, Simplified),
-    maplist([X,Y]>>(X=S-G,arrangements(S,G,Y)), Simplified, Nums),
+    maplist([X,Y]>>(X=S-G, arrangements(S,G,Y)), Simplified, Nums),
     sum(Nums, #=, Ans).
 
     %arrangements("??"-[1], N), write(N), nl.
@@ -37,11 +37,14 @@ solve(List, Ans) :-
     */
 
 simplify([], [], []).
-simplify([H|T], [], [[H|T]]).
+simplify(List, [], [List-L]) :-
+    List = [_|_],
+    length(List, L).
 simplify([], ['.'|T], Out) :-
     simplify([], T, Out).
-simplify(List, ['.'|T], [List|Out]) :-
+simplify(List, ['.'|T], [List-L|Out]) :-
     List = [_|_],
+    length(List, L),
     simplify([], T, Out).
 simplify(List, ['#'|T], Out) :-
     append(List, ['#'], NList),
@@ -52,19 +55,21 @@ simplify(List, ['?'|T], Out) :-
 
 arrangements([], [], 1).
 arrangements([], [_|_], 0).
-arrangements([H|T], Groups, N) :-
+arrangements(List, Groups, N) :- mem(List, Groups, N), !.
+arrangements([H-LH|T], Groups, N) :-
     findall(Z, (
         append(A, B, Groups),
         % check H can ever cover A in order to filter
         sum(A, #=, Sum),
         length(A, LA),
-        length(H, LH),
         LH #>= Sum + LA - 1,
+        ( A = [AA|_], LH #< AA -> Z #= 0 ;
         arrangements(H-A, X),
         arrangements(T, B, Y),
-        Z #= X*Y
+        Z #= X*Y )
     ), Ways),
-    sum(Ways, #=, N).
+    sum(Ways, #=, N),
+    assertz(mem([H-LH|T], Groups, N)).
 
 arrangements(Springs-Groups, N) :-
     arrangement(Springs, Groups, N).
@@ -73,41 +78,39 @@ arrangement(S, G, N) :- mem(S, G, N), !.
 
 arrangement([], [], 1).
 arrangement([], [_|_], 0).
-arrangement(['#'|_], [], 0).
-arrangement(['#'|T], [X|Groups], 0) :-
+arrangement([C|T], Groups, N) :-
     length(T, TLen),
+    arrangement([C|T], TLen, Groups, N).
+
+arrangement(['#'|_], _, [], 0).
+arrangement(['#'|T], TLen, [X|Groups], 0) :-
     Y #= X-1,
     TLen #< Y,
     assertz(mem(['#'|T], [X|Groups], 0)).
-arrangement(['#'|T], [X|Groups], N) :-
-    length(T, TLen),
+arrangement(['#'|T], TLen, [X|Groups], N) :-
     Y #= X-1,
     TLen #= Y,
     ( Groups == [] -> N#=1; N#=0 ),
     assertz(mem(['#'|T], [X|Groups], N)).
-arrangement(['#'|T], [X|Groups], N) :-
-    length(T, TLen),
+arrangement(['#'|T], TLen, [X|Groups], N) :-
     Y #= X-1,
     TLen #> Y,
     length(Pref, Y),
     append(Pref, [H|Rem], T),
     ( H == '?' -> arrangement(Rem, Groups, N) ; N = 0 ),
     assertz(mem(['#'|T], [X|Groups], N)).
-arrangement(['?'|T], [], N) :-
+arrangement(['?'|T], _, [], N) :-
     arrangement(T, [], N).
-arrangement(['?'|T], [X|Groups], 0) :-
-    length(T, TLen),
+arrangement(['?'|T], TLen, [X|Groups], 0) :-
     Y #= X-1,
     TLen #< Y,
     assertz(mem(['?'|T], [X|Groups], 0)).
-arrangement(['?'|T], [X|Groups], N) :-
-    length(T, TLen),
+arrangement(['?'|T], TLen, [X|Groups], N) :-
     Y #= X-1,
     TLen #= Y,
     ( Groups == [] -> N#=1; N#=0 ),
     assertz(mem(['?'|T], [X|Groups], N)).
-arrangement(['?'|T], [X|Groups], N) :-
-    length(T, TLen),
+arrangement(['?'|T], TLen, [X|Groups], N) :-
     Y #= X-1,
     TLen #> Y,
     arrangement(T, [X|Groups], A), % '?' -> '.'
