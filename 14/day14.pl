@@ -1,15 +1,57 @@
 :- use_module(library(lambda)).
 
+:- dynamic(seen/2).
+
 run_day(14, Filename) :-
     phrase_from_file(parse(List), Filename),
-    transpose(List, T),
-    maplist(slide_west(0,0), T, S),
+    % maplist(reverse) . transpose == rotate 90 counterclockwise
+    % so that 'north' is left and we can start at sliding westwards
+    maplist(reverse, List, Rev),
+    transpose(Rev, CCW),
+    slide_west(CCW, S),
     maplist(count_load, S, C),
     sum(C, #=, Ans1),
-    write(Ans1).
-    %maplist(\X^(write(X),nl), T).
+    write_part1(Ans1),
+    cycles(0, CCW, Start, Len),
+    Step #= Start + ((1000000000-Start) mod Len),
+    seen(Final, Step),
+    maplist(count_load, Final, Cs),
+    sum(Cs, #=, Ans2),
+    write_part2(Ans2).
+
+cycles(N, List, CycleStart, CycleLen) :-
+    ( seen(List, X) -> CycleStart #= X, CycleLen #= N-X
+    ; cycle(List, C), assertz(seen(List, N)), M #= N+1, cycles(M, C, CycleStart, CycleLen) ).
+
+cycle(List, Out) :-
+    slide_west(List, A),
+    rotate(A, AR),
+    slide_west(AR, B),
+    rotate(B, BR),
+    slide_west(BR, C),
+    rotate(C, CR),
+    slide_west(CR, D),
+    rotate(D, Out).
+
+% rotate 90 degrees clockwise
+rotate([H|T], Out) :-
+    length(H, L),
+    length(Empties, L),
+    maplist(=([]), Empties),
+    rotate([H|T], Empties, Out).
+
+rotate([], X, X).
+rotate([H|T], Acc, Out) :-
+    zip(H, Acc, NAcc),
+    rotate(T, NAcc, Out).
+
+zip([], [], []).
+zip([X|T1], [Y|T2], [[X|Y]|Z]) :-
+    zip(T1, T2, Z).
 
 % slide_west(NumEmpty, NumRock, In, Out)
+slide_west(List, Out) :-
+    maplist(slide_west(0, 0), List, Out).
 slide_west(N, M, [], Out) :-
     assemble(N, M, Out).
 slide_west(N, M, ['.'|T], Out) :-
