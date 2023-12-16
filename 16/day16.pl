@@ -1,16 +1,36 @@
-:- dynamic(energized/2).
+:- use_module(library(between)).
+:- use_module(library(lambda)).
 
-%use_test_input.
+:- dynamic(energized/2).
 
 run_day(16, Filename) :-
     phrase_from_file(parse(0,0), Filename),
     find_max(Max),
-    energize([beam(-1-0,1-0)], Max),
+    part1(-1-0, 1-0, Max, Ans1),
+    write_part1(Ans1),
+    Max = MX-MY,
+    MMX #= MX+1,
+    MMY #= MY+1,
+    numlist(0, MX, Xs),
+    numlist(0, MY, Ys),
+    maplist(Max+\X^A^(part1(X-(-1), 0-1, Max, A)), Xs, Down),
+    maplist(Max+\X^A^(part1(X-MMY, 0-(-1), Max, A)), Xs, Up),
+    maplist(Max+\Y^A^(part1(-1-Y, 1-0, Max, A)), Ys, Left),
+    maplist(Max+\Y^A^(part1(MMX-Y, -1-0, Max, A)), Ys, Right),
+    append(Down, Up, A),
+    append(A, Left, B),
+    append(B, Right, C),
+    sort(C, Sorted),
+    reverse(Sorted, [Ans2|_]),
+    write_part2(Ans2).
+
+part1(Start, Dir, Max, Ans) :-
+    retractall(energized(_,_)),
+    energize([beam(Start, Dir)], Max),
     findall(C, energized(C,_), List),
     list_to_set(List, Set),
     length(Set, Len),
-    Ans1 #= Len - 1, % account for assertion of oob start
-    write_part1(Ans1).
+    Ans #= Len - 1. % account for assertion of oob start
 
 energize([], _).
 energize([beam(C,Dir)|Beams], Max) :-
