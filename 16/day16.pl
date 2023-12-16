@@ -1,7 +1,10 @@
+:- use_module(library(assoc)).
 :- use_module(library(between)).
 :- use_module(library(lambda)).
 
-:- dynamic(energized/2).
+:- dynamic(mem/4).
+
+%use_test_input.
 
 run_day(16, Filename) :-
     phrase_from_file(parse(0,0), Filename),
@@ -25,42 +28,59 @@ run_day(16, Filename) :-
     write_part2(Ans2).
 
 part1(Start, Dir, Max, Ans) :-
-    retractall(energized(_,_)),
-    energize([beam(Start, Dir)], Max),
-    findall(C, energized(C,_), List),
-    list_to_set(List, Set),
-    length(Set, Len),
+    empty_assoc(Energized),
+    empty_assoc(Seen),
+    energize([beam(Start, Dir)], Max, Seen, Energized, Out),
+    assoc_to_keys(Out, List),
+    length(List, Len),
     Ans #= Len - 1. % account for assertion of oob start
 
-energize([], _).
-energize([beam(C,Dir)|Beams], Max) :-
-    energized(C,Dir),
-    energize(Beams, Max).
-energize([beam(C,Dir)|Beams], Max) :-
-    \+energized(C, Dir),
-    %write([beam(C,Dir)|Beams]), nl,
+energize([], _, _, X, X).
+energize([beam(C,Dir)|Beams], Max, Seen, Energized, Out) :-
+    get_assoc(C-Dir, Seen, _),
+    %write(["SKIP", [beam(C,Dir)|Beams]]), nl,
+    energize(Beams, Max, Seen, Energized, Out).
+energize([beam(C,Dir)|Beams], Max, Seen, Energized, Out) :-
+    \+get_assoc(C-Dir, Seen, _),
+    mem(C, Dir, End, More),
+    %write(["MEM", [beam(C,Dir)|Beams]]), nl,
+    put_assoc(C-Dir, Seen, true, NewSeen),
+    ( End = none -> find_line_oob(C, Dir, Max, Energized, NewEnergized)
+    ; find_line(C, Dir, End, Energized, NewEnergized) ),
+    ( More == [] -> NewBeams = Beams ; append(More, Beams, NewBeams) ),
+    energize(NewBeams, Max, NewSeen, NewEnergized, Out).
+energize([beam(C,Dir)|Beams], Max, Seen, Energized, Out) :-
+    \+get_assoc(C-Dir, Seen, _),
+    \+mem(C, Dir, _, _),
+    %write(["NEW", [beam(C,Dir)|Beams]]), nl,
+    put_assoc(C-Dir, Seen, true, NewSeen),
     ( find_closest(C, Dir, Item) ->
         Item =.. [_, Pos, _],
-        %write(Item), nl,
-        assert_line(C, Dir, Pos),
+        find_line(C, Dir, Pos, Energized, NewEnergized),
         newbeams(Dir, Item, MoreBeams),
+        assertz(mem(C, Dir, Pos, MoreBeams)),
         append(MoreBeams, Beams, NewBeams),
-        energize(NewBeams, Max)
+        energize(NewBeams, Max, NewSeen, NewEnergized, Out)
     ;
-        assert_until_oob(C, Dir, Max),
-        energize(Beams, Max)
+        find_line_oob(C, Dir, Max, Energized, NewEnergized),
+        assertz(mem(C, Dir, none, [])),
+        energize(Beams, Max, NewSeen, NewEnergized, Out)
     ).
 
-assert_line(X, _, X).
-assert_line(C, Dir, End) :-
+find_line(X, _, X, Y, Y).
+find_line(C, Dir, End, Assoc, Out) :-
     C \= End,
-    assertz(energized(C, Dir)),
     move(C, Dir, Pos),
-    assert_line(Pos, Dir, End).
+    put_assoc(C, Assoc, true, NewAssoc),
+    find_line(Pos, Dir, End, NewAssoc, Out).
 
-assert_until_oob(C, Dir, Max) :-
-    ( out_of_bounds(C, Max) -> true ;
-        assertz(energized(C,Dir)), move(C,Dir,Pos), assert_until_oob(Pos,Dir,Max) ).
+find_line_oob(C, _, Max, X, X) :-
+    out_of_bounds(C, Max).
+find_line_oob(C, Dir, Max, Assoc, Out) :-
+    \+out_of_bounds(C, Max),
+    move(C, Dir, Pos),
+    put_assoc(C, Assoc, true, NewAssoc),
+    find_line_oob(Pos, Dir, Max, NewAssoc, Out).
 
 find_closest(X-Y, -1-0, Item) :-
     findall(NX-Item, (
