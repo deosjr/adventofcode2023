@@ -1,36 +1,87 @@
 :- dynamic(energized/2).
 
+%use_test_input.
+
 run_day(16, Filename) :-
     phrase_from_file(parse(0,0), Filename),
     find_max(Max),
-    energize([beam(0-0,1-0)], Max),
+    energize([beam(-1-0,1-0)], Max),
     findall(C, energized(C,_), List),
     list_to_set(List, Set),
-    length(Set, Ans1),
+    length(Set, Len),
+    Ans1 #= Len - 1, % account for assertion of oob start
     write_part1(Ans1).
 
 energize([], _).
 energize([beam(C,Dir)|Beams], Max) :-
-    ( energized(C,Dir) ; out_of_bounds(C,Max) ),
+    energized(C,Dir),
     energize(Beams, Max).
 energize([beam(C,Dir)|Beams], Max) :-
     \+energized(C, Dir),
-    \+out_of_bounds(C, Max),
-    assertz(energized(C, Dir)),
-    newbeams(C, Dir, MoreBeams),
-    append(MoreBeams, Beams, NewBeams),
-    energize(NewBeams, Max).
+    %write([beam(C,Dir)|Beams]), nl,
+    ( find_closest(C, Dir, Item) ->
+        Item =.. [_, Pos, _],
+        %write(Item), nl,
+        assert_line(C, Dir, Pos),
+        newbeams(Dir, Item, MoreBeams),
+        append(MoreBeams, Beams, NewBeams),
+        energize(NewBeams, Max)
+    ;
+        assert_until_oob(C, Dir, Max),
+        energize(Beams, Max)
+    ).
 
-newbeams(C, Dir, [beam(NewPos,NewDir)]) :-
-    mirror(C, Mirror),
-    mirror_direction(Mirror, Dir, NewDir),
-    move(C, NewDir, NewPos).
-newbeams(C, Dir, SplitBeams) :-
+assert_line(X, _, X).
+assert_line(C, Dir, End) :-
+    C \= End,
+    assertz(energized(C, Dir)),
+    move(C, Dir, Pos),
+    assert_line(Pos, Dir, End).
+
+assert_until_oob(C, Dir, Max) :-
+    ( out_of_bounds(C, Max) -> true ;
+        assertz(energized(C,Dir)), move(C,Dir,Pos), assert_until_oob(Pos,Dir,Max) ).
+
+find_closest(X-Y, -1-0, Item) :-
+    findall(NX-Item, (
+        C=NX-Y,
+        NX #< X,
+        ( mirror(C,Mode), Item=mirror(C,Mode) 
+        ; splitter(C,Mode), Item=splitter(C,Mode) )
+    ), Found),
+    sort(Found, Sorted),
+    reverse(Sorted, [_-Item|_]).
+find_closest(X-Y, 1-0, Item) :-
+    findall(NX-Item, (
+        C=NX-Y,
+        NX #> X,
+        ( mirror(C,Mode), Item=mirror(C,Mode) 
+        ; splitter(C,Mode), Item=splitter(C,Mode) )
+    ), Found),
+    sort(Found, [_-Item|_]).
+find_closest(X-Y, 0-1, Item) :-
+    findall(NY-Item, (
+        C=X-NY,
+        NY #> Y,
+        ( mirror(C,Mode), Item=mirror(C,Mode) 
+        ; splitter(C,Mode), Item=splitter(C,Mode) )
+    ), Found),
+    sort(Found, [_-Item|_]).
+find_closest(X-Y, 0-(-1), Item) :-
+    findall(NY-Item, (
+        C=X-NY,
+        NY #< Y,
+        ( mirror(C,Mode), Item=mirror(C,Mode) 
+        ; splitter(C,Mode), Item=splitter(C,Mode) )
+    ), Found),
+    sort(Found, Sorted),
+    reverse(Sorted, [_-Item|_]).
+
+newbeams(Dir, mirror(C, Mirror), [beam(C,NewDir)]) :-
+    mirror_direction(Mirror, Dir, NewDir).
+newbeams(Dir, splitter(C, Splitter), SplitBeams) :-
     splitter(C, Splitter),
     split_beam(Splitter, C, Dir, SplitBeams).
-newbeams(C, Dir, [beam(NewPos,Dir)]) :-
-    \+mirror(C,_), \+splitter(C,_),
-    move(C, Dir, NewPos).
 
 mirror_direction(forward, X-Y, DX-DY) :-
     DX #= -1 * Y, DY #= -1 * X.
@@ -38,29 +89,20 @@ mirror_direction(backward, X-Y, Y-X).
 
 split_beam(horizontal, C, DX-DY, Split) :-
     ( DY #= 0 ->
-        move(C, DX-DY, NewPos),
-        Split = [beam(NewPos,DX-DY)]
+        Split = [beam(C,DX-DY)]
     ;
-        move(C, -1-0, Left),
-        move(C, 1-0, Right),
-        Split = [beam(Left,-1-0), beam(Right,1-0)]
+        Split = [beam(C,-1-0), beam(C,1-0)]
     ).
 split_beam(vertical, C, DX-DY, Split) :-
     ( DX #= 0 ->
-        move(C, DX-DY, NewPos),
-        Split = [beam(NewPos,DX-DY)]
+        Split = [beam(C,DX-DY)]
     ;
-        move(C, 0-(-1), Up),
-        move(C, 0-1, Down),
-        Split = [beam(Up,0-(-1)), beam(Down,0-1)]
+        Split = [beam(C,0-(-1)), beam(C,0-1)]
     ).
 
 move(X-Y, DX-DY, PX-PY) :-
     PX #= X + DX,
     PY #= Y + DY.
-
-%left(X-Y, Y-DY)  :- DY #= -1 * X.
-%right(X-Y, DX-X) :- DX #= -1 * Y.
 
 out_of_bounds(X-Y, MX-MY) :-
     X #< 0 ; Y #< 0 ; X #> MX ; Y #> MY.
