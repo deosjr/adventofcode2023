@@ -28,9 +28,8 @@ type grid struct {
     m map[coord]float64
 }
 
-func (g *grid) Neighbours(pn path.Node) []path.Node {
-    nodes := []path.Node{}
-    n := pn.(node)
+func (g *grid) Neighbours(n node) []node {
+    nodes := []node{}
     d := n.dir
     l := left(d)
     r := right(d)
@@ -58,12 +57,11 @@ func (g *grid) Neighbours(pn path.Node) []path.Node {
     return nodes
 }
 
-func (g *grid) G(n, neighbour path.Node) float64 {
-    return g.m[neighbour.(node).pos]
+func (g *grid) G(n, neighbour node) float64 {
+    return g.m[neighbour.pos]
 }
 
-func (g *grid) H(n, goal path.Node) float64 {
-    p, q := n.(node), goal.(node)
+func (g *grid) H(p, q node) float64 {
     return math.Abs(float64(q.pos.x-p.pos.x)) + math.Abs(float64(q.pos.y-p.pos.y))
 }
 
@@ -101,41 +99,17 @@ func main() {
         y++
     }
     maxY := y-1
-    start := node{coord{0,0}, coord{1,0}, 0}
-    // TODO: separate goal-matching func ignoring fields in eq
-    goals := []node{
-        {coord{maxX, maxY}, coord{0,1}, 4},
-        {coord{maxX, maxY}, coord{0,1}, 5},
-        {coord{maxX, maxY}, coord{0,1}, 6},
-        {coord{maxX, maxY}, coord{0,1}, 7},
-        {coord{maxX, maxY}, coord{0,1}, 8},
-        {coord{maxX, maxY}, coord{0,1}, 9},
-        {coord{maxX, maxY}, coord{0,1}, 10},
-        {coord{maxX, maxY}, coord{1,0}, 4},
-        {coord{maxX, maxY}, coord{1,0}, 5},
-        {coord{maxX, maxY}, coord{1,0}, 6},
-        {coord{maxX, maxY}, coord{1,0}, 7},
-        {coord{maxX, maxY}, coord{1,0}, 8},
-        {coord{maxX, maxY}, coord{1,0}, 9},
-        {coord{maxX, maxY}, coord{1,0}, 10},
+    start := node{pos:coord{0,0}, dir:coord{1,0}, steps:0}
+    goal := node{pos:coord{maxX, maxY}}
+    p, err := path.FindRouteWithGoalFunc[node](m, start, goal, func(c, g node) bool {
+        return c.pos == g.pos && c.steps >= 4
+    })
+    if err != nil {
+        panic(err)
     }
-    ans := -1
-    for _, g := range goals {
-        p, err := path.FindRoute(m, start, g)
-        if err != nil {
-            continue
-        }
-        sum := 0
-        for _, n := range p[:len(p)-1] {
-            sum += int(m.m[n.(node).pos])
-        }
-        if ans == -1 {
-            ans = sum
-            continue
-        }
-        if ans > sum {
-            ans = sum
-        }
+    sum := 0
+    for _, n := range p[1:len(p)-1] {
+        sum += int(m.m[n.pos])
     }
-    fmt.Println(ans)
+    fmt.Println(sum)
 }
