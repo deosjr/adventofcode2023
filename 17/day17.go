@@ -33,19 +33,25 @@ func (g *grid) Neighbours(pn path.Node) []path.Node {
     n := pn.(node)
     d := n.dir
     l := left(d)
+    r := right(d)
     leftnode := node{n.pos.add(l), l, 1}
+    rightnode := node{n.pos.add(r), r, 1}
+    straightnode := node{n.pos.add(n.dir), n.dir, n.steps+1}
+    if n.steps < 4 {
+        if !g.outOfBounds(straightnode.pos) {
+            nodes = append(nodes, straightnode)
+        }
+        return nodes
+    }
     if !g.outOfBounds(leftnode.pos) {
         nodes = append(nodes, leftnode)
     }
-    r := right(d)
-    rightnode := node{n.pos.add(r), r, 1}
     if !g.outOfBounds(rightnode.pos) {
         nodes = append(nodes, rightnode)
     }
-    if n.steps == 3 {
+    if n.steps == 10 {
         return nodes
     }
-    straightnode := node{n.pos.add(n.dir), n.dir, n.steps+1}
     if !g.outOfBounds(straightnode.pos) {
         nodes = append(nodes, straightnode)
     }
@@ -98,12 +104,20 @@ func main() {
     start := node{coord{0,0}, coord{1,0}, 0}
     // TODO: separate goal-matching func ignoring fields in eq
     goals := []node{
-        {coord{maxX, maxY}, coord{0,1}, 1},
-        {coord{maxX, maxY}, coord{0,1}, 2},
-        {coord{maxX, maxY}, coord{0,1}, 3},
-        {coord{maxX, maxY}, coord{1,0}, 1},
-        {coord{maxX, maxY}, coord{1,0}, 2},
-        {coord{maxX, maxY}, coord{1,0}, 3},
+        {coord{maxX, maxY}, coord{0,1}, 4},
+        {coord{maxX, maxY}, coord{0,1}, 5},
+        {coord{maxX, maxY}, coord{0,1}, 6},
+        {coord{maxX, maxY}, coord{0,1}, 7},
+        {coord{maxX, maxY}, coord{0,1}, 8},
+        {coord{maxX, maxY}, coord{0,1}, 9},
+        {coord{maxX, maxY}, coord{0,1}, 10},
+        {coord{maxX, maxY}, coord{1,0}, 4},
+        {coord{maxX, maxY}, coord{1,0}, 5},
+        {coord{maxX, maxY}, coord{1,0}, 6},
+        {coord{maxX, maxY}, coord{1,0}, 7},
+        {coord{maxX, maxY}, coord{1,0}, 8},
+        {coord{maxX, maxY}, coord{1,0}, 9},
+        {coord{maxX, maxY}, coord{1,0}, 10},
     }
     ans := -1
     for _, g := range goals {
