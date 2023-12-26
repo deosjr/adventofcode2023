@@ -5,6 +5,7 @@ import (
     "fmt"
     "math"
     "os"
+    "sort"
 )
 
 type coord struct { x, y int }
@@ -19,150 +20,199 @@ var (
     down    = coord{0, 1}
     left    = coord{-1, 0}
     right   = coord{1, 0}
+    dirs    = []coord{right, down, left, up}
 )
 
 type instruction struct {
     dir coord
     n int
-    c int
 }
 
-type edge uint8
-
-const (
-    none edge = iota
-    horizontal
-    vertical
-    northwest
-    northeast
-    southwest
-    southeast
-    fill
-)
+type line struct {
+    from, to coord
+}
 
 var (
-    m = map[coord]edge{}
-    colours = map[coord]int{}
     minX = math.MaxInt32
     minY = math.MaxInt32
     maxX = math.MinInt32
     maxY = math.MinInt32
 )
 
-func drawBoundary(instrs []instruction) {
-    pos := origin
-    dir := origin // as null value
+func drawBoundary(instrs []instruction) []line {
+    var lines []line
+    c := origin
     for _, instr := range instrs {
-        prevdir := dir
-        prevpos := pos
-        dir = instr.dir
-        for i:=0; i<instr.n; i++ {
-            pos = pos.add(instr.dir)
-            if dir == up || dir == down {
-                m[pos] = vertical
-                continue
-            }
-            m[pos] = horizontal
-            colours[pos] = instr.c
+        next := c.add(coord{instr.dir.x * instr.n, instr.dir.y * instr.n})
+        // guarantee vertical lines point downwards
+        if instr.dir == up {
+            lines = append(lines, line{next, c})
         }
-        if prevdir == origin {
+        if instr.dir == down {
+            lines = append(lines, line{c, next})
+        }
+        c = next
+    }
+    return lines
+}
+
+// takes vertical lines, calculates area
+func fillInterior(lines []line) int {
+    sum := 0
+    for len(lines) > 0 {
+        // find all lines with minX
+        sort.Slice(lines, func(i, j int) bool {
+            return lines[i].from.x < lines[j].from.x
+        })
+        // find next smallest X (call it nsX)
+        smallest, nsX, rest := findLeftmostLines(lines)
+        if rest == nil {
+            break
+        }
+        // push all found lines up to nsX, add area
+        delta := nsX - smallest[0].from.x
+        var pushed []line
+        for _, l := range smallest {
+            sum += (l.to.y - l.from.y + 1) * (delta + 1)
+            pushed = append(pushed, line{from:coord{l.from.x + delta, l.from.y}, to:coord{l.to.x + delta, l.to.y}})
+        }
+        // add/subtract lines at nsX, repeat
+        nextSmallest, _, rem := findLeftmostLines(rest)
+        joined, _ := joinLines(pushed, nextSmallest)
+        _, cutLen := joinLines(joined, smallest)
+        fmt.Println(sum, cutLen)
+        sum -= cutLen
+        lines = append(rem, joined...)
+    }
+    return sum
+}
+
+func lineLengths(lines []line) int {
+    sum := 0
+    for _, l := range lines {
+        sum += l.to.y - l.from.y + 1
+    }
+    return sum
+}
+
+func findLeftmostLines(lines []line) (leftmost []line, nsX int, rest []line) {
+    minX := lines[0].from.x
+    for i, l := range lines {
+        if l.from.x == minX {
+            leftmost = append(leftmost, l)
             continue
         }
-        m[prevpos] = getCorner(prevdir, dir)
+        nsX = l.from.x
+        rest = lines[i:]
+        break
     }
-    m[origin] = getCorner(dir, instrs[0].dir)
+    return leftmost, nsX, rest
 }
 
-func getCorner(prevdir, dir coord) edge {
-    switch {
-    case prevdir == up && dir == right:
-        return southeast
-    case prevdir == up && dir == left:
-        return southwest
-    case prevdir == down && dir == right:
-        return northeast
-    case prevdir == down && dir == left:
-        return northwest
-    case prevdir == left && dir == up:
-        return northeast
-    case prevdir == left && dir == down:
-        return southeast
-    case prevdir == right && dir == up:
-        return northwest
-    case prevdir == right && dir == down:
-        return southwest
-    }
-    panic("corner")
-}
-
-func fillInterior() {
-    for y:=minY; y<=maxY; y++ {
-        crossed := 0
-        corner := none
-        for x:=minX; x<=maxX; x++ {
-            if edge, ok := m[coord{x,y}]; ok {
-                if corner == northeast {
-                    switch edge {
-                    case horizontal:
-                        continue
-                    case northwest:
-                        break
-                    case southwest:
-                        crossed++
-                    default:
-                        panic("unexpected edge")
-                    }
-                    corner = none
-                    continue
-                }
-                if corner == southeast {
-                    switch edge {
-                    case horizontal:
-                        continue
-                    case northwest:
-                        crossed++
-                    case southwest:
-                        break
-                    default:
-                        panic("unexpected edge")
-                    }
-                    corner = none
-                    continue
-                }
-                switch edge {
-                case vertical:
-                    crossed++
-                case northeast, southeast:
-                    corner = edge
-                    continue
-                default:
-                    panic("unexpected edge")
-                }
-                continue
+// all have same x coord, but there might be overlap along the y axis
+// a and b internally dont overlap, only overlap is between them
+// we need to take the overlap out and return the rest, more like a zip
+// also returns length of overlap cut
+func joinLines(a, b []line) ([]line, int) {
+    sort.Slice(a, func(i, j int) bool {
+        return a[i].from.y < a[j].from.y
+    })
+    sort.Slice(b, func(i, j int) bool {
+        return b[i].from.y < b[j].from.y
+    })
+    var joined []line
+    cut := 0
+    for len(a) > 0 && len(b) > 0 {
+        switch {
+        // bfrom - bto - afrom - ato
+        case b[0].to.y < a[0].from.y:
+            joined = append(joined, b[0])
+            b = b[1:]
+        // afrom - ato - bfrom - bto
+        case b[0].from.y > a[0].to.y:
+            joined = append(joined, a[0])
+            a = a[1:]
+        // afrom - bfrom - ato - bto
+        case b[0].to.y >= a[0].to.y && b[0].from.y >= a[0].from.y:
+            cut += a[0].to.y - b[0].from.y + 1
+            if a[0].from.y != b[0].from.y {
+                joined = append(joined, line{a[0].from, b[0].from})
             }
-            if crossed % 2 == 0 {
-                continue
+            if a[0].to != b[0].to {
+                b = append([]line{{a[0].to, b[0].to}}, b[1:]...)
+            } else {
+                b = b[1:]
             }
-            m[coord{x,y}] = fill
+            a = a[1:]
+        // afrom - bfrom - bto - ato
+        case b[0].to.y <= a[0].to.y && b[0].from.y >= a[0].from.y:
+            cut += b[0].to.y - b[0].from.y + 1
+            if a[0].from.y != b[0].from.y {
+                joined = append(joined, line{a[0].from, b[0].from})
+            }
+            if b[0].to.y != a[0].to.y {
+                a = append([]line{{b[0].to, a[0].to}}, a[1:]...)
+            } else {
+                a = a[1:]
+            }
+            b = b[1:]
+        // bfrom - afrom - bto - ato
+        case b[0].to.y <= a[0].to.y && b[0].from.y <= a[0].from.y:
+            cut += b[0].to.y - a[0].from.y + 1
+            if b[0].from.y != a[0].from.y {
+                joined = append(joined, line{b[0].from, a[0].from})
+            }
+            if b[0].to.y != a[0].to.y {
+                a = append([]line{{b[0].to, a[0].to}}, a[1:]...)
+            } else {
+                a = a[1:]
+            }
+            b = b[1:]
+        // bfrom - afrom - ato - bto
+        case b[0].to.y >= a[0].to.y && b[0].from.y <= a[0].from.y:
+            cut += a[0].to.y - a[0].from.y + 1
+            if b[0].from.y != a[0].from.y {
+                joined = append(joined, line{b[0].from, a[0].from})
+            }
+            if a[0].to.y != b[0].to.y {
+                b = append([]line{{a[0].to, b[0].to}}, b[1:]...)
+            } else {
+                b = b[1:]
+            }
+            a = a[1:]
         }
     }
+    joined = append(joined, a...)
+    joined = append(joined, b...)
+    return simplify(joined), cut
+}
+
+func max(x, y int) int { if x > y { return x }; return y }
+
+func simplify(lines []line) []line {
+    if len(lines) < 2 {
+        return lines
+    }
+    sort.Slice(lines, func(i, j int) bool {
+        return lines[i].from.y < lines[j].from.y
+    })
+    var out []line
+    candidate := lines[0]
+    for _, l := range lines[1:] {
+        if candidate.to.y == l.from.y {
+            candidate.to.y = l.to.y
+            continue
+        }
+        out = append(out, candidate)
+        candidate = l
+    }
+    out = append(out, candidate)
+    return out
 }
 
 func findMinMax() {
-    for c, _ := range m {
-        if c.x < minX {
-            minX = c.x
-        }
-        if c.x > maxX {
-            maxX = c.x
-        }
-        if c.y < minY {
-            minY = c.y
-        }
-        if c.y > maxY {
-            maxY = c.y
-        }
-    }
+    minY, maxY = 0, 9
+    minX, maxX = 0, 6
 }
 
 func main() {
@@ -175,8 +225,8 @@ func main() {
     var instrs []instruction
     for scanner.Scan() {
         var instr rune
-        var n, colour int
-        fmt.Sscanf(scanner.Text(), "%c %d (#%x)", &instr, &n, &colour)
+        var n, trueN, trueDir int
+        fmt.Sscanf(scanner.Text(), "%c %d (#%5x%x)", &instr, &n, &trueN, &trueDir)
         var dir coord
         switch instr {
         case 'U':
@@ -188,44 +238,12 @@ func main() {
         case 'R':
             dir = right
         }
-        instrs = append(instrs, instruction{dir, n, colour})
+        dir, n = dirs[trueDir], trueN
+        instrs = append(instrs, instruction{dir, n})
     }
 
-    drawBoundary(instrs)
+    lines := drawBoundary(instrs)
     findMinMax()
-    fillInterior()
-
-    sum := 0
-    /*
-    minX = 80
-    maxX = 120
-    maxY = -200
-    */
-    for y:=minY; y<=maxY; y++ {
-        for x:=minX; x<=maxX; x++ {
-            if edge, ok := m[coord{x,y}]; ok {
-                switch edge {
-                case horizontal:
-                    fmt.Print("-")
-                case vertical:
-                    fmt.Print("|")
-                case northwest:
-                    fmt.Print("J")
-                case northeast:
-                    fmt.Print("L")
-                case southwest:
-                    fmt.Print("7")
-                case southeast:
-                    fmt.Print("F")
-                case fill:
-                    fmt.Print("#")
-                }
-                sum++
-                continue
-            }
-            fmt.Print(".")
-        }
-        fmt.Println()
-    }
-    fmt.Println(sum)
+    ans := fillInterior(lines)
+    fmt.Println(ans)
 }
