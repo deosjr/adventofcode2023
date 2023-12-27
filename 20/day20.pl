@@ -1,35 +1,50 @@
+:- use_module(library(arithmetic)).
 :- use_module(library(lambda)).
 :- use_module(library(queues)).
-
-:- dynamic(mem/1).
-
-%use_test_input.
 
 run_day(20, Filename) :-
     phrase_from_file(parse, Filename),
     prep_conjuncts,
-    % [button,1000,17109,43679]
-    Ans1 #= 17109 * 43679,
-    %detect_cycle(N, Lows, Highs),
-    %D #= 1000 // N,
-    %Ans1 #= Lows * D * Highs * D,
-    write_part1(Ans1).
+    press_button(1000, Lows, Highs),
+    Ans1 #= Lows * Highs,
+    write_part1(Ans1),
+    %% this was used to generate a mermaid graph, output pasted into mermaid.live
+    %broadcaster(B),
+    %format("flowchart TD", []), nl,
+    %format("B(broadcaster)", []), nl,
+    %maplist(\X^(format("B --> ~w", [X]),nl), B),
+    %findall(_, (flipflop(Name,To,_), mermaid('%', Name, To)), _),
+    %findall(_, (conjunct(Name,To,_), mermaid('&', Name, To)), _).
+    %
+    %% from that graph we can see regularities
+    %% series of flipflops representing a binary number
+    %% that resets, encoding a cycle.
+    %% rx first receives a low pulse when all subgraphs output low at the same time
+    %% they take an extra button press to reset, so if X is binary number for subgraph,
+    %% then X * N + (N-1) is button presses needed for that subgraph to output
+    %% a low pulse the Nth time. This simplifies to X*(N+1) - 1, and equating all four
+    %% subgraphs we can drop the -1. Now we are back at a LCM problem of 4 vars.
+    foldl(lcm, [3821, 3761, 3889, 3943], 1, Ans2),
+    write_part2(Ans2).
 
-detect_cycle(N, Lows, Highs) :-
-    detect_cycle(0, N, 0, Lows, 0, Highs).
+/*
+mermaid(C, Name, To) :-
+    ( C == '%' -> format("~w((~w))", [Name, Name]) ; format("~w{~w}", [Name, Name]) ), nl,
+    maplist(Name+\X^(format("~w --> ~w", [Name,X]),nl), To).
+*/
 
-detect_cycle(X, Out, AccL, Lows, AccH, Highs) :-
-    findall(N-S, (flipflop(N, _, S);conjunct(N, _, L),sort(L,S)), Modules),
-    sort(Modules, Sorted),
-    %write(Sorted), nl,
-    ( mem(Sorted) -> Out = X, Lows=AccL, Highs=AccH ;
-        assertz(mem(Sorted)),
-        button(L, H),
-        NX #= X+1,
-        NAccL #= AccL + L + 1, % button->broadcaster is an extra low
-        NAccH #= AccH + H,
-        %write([button, NX, NAccL, NAccH]), nl,
-        detect_cycle(NX, Out, NAccL, Lows, NAccH, Highs)).
+press_button(N, Lows, Highs) :-
+    press_button(0, N, 0, Lows, 0, Highs).
+
+press_button(X, X, Y, Y, Z, Z).
+press_button(X, Out, AccL, Lows, AccH, Highs) :-
+    X #< Out,
+    button(L, H),
+    NX #= X+1,
+    NAccL #= AccL + L + 1, % button->broadcaster is an extra low
+    NAccH #= AccH + H,
+    %write([button, NX, NAccL, NAccH]), nl,
+    press_button(NX, Out, NAccL, Lows, NAccH, Highs).
 
 button(Lows, Highs) :-
     broadcast(Queue),
