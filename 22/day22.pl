@@ -7,7 +7,6 @@
 run_day(22, Filename) :-
     phrase_from_file(parse(Bricks), Filename),
     settle_bricks(Bricks, Settled),
-    write(Settled),
     safe_disintegrate(Settled, Ans1),
     write_part1(Ans1).
 
@@ -17,7 +16,7 @@ settle_bricks(Bricks, Settled) :-
 
 settle_bricks([], X, X).
 settle_bricks([Brick|T], Settled, Total) :-
-    write(Brick),nl,
+    %write(Brick),nl,
     settle(Brick, Settled, NewSettled),
     settle_bricks(T, NewSettled, Total).
 
@@ -45,13 +44,16 @@ intersect(Brick, Settled, Z) :-
     rays(Brick, Rays),
     intersect(Rays, Settled, Z).
 
-intersect([], _, 1).
-intersect([R|Rays], Settled, Z) :-
-    ( ray_intersect(R, Settled, ZZ) -> Z #= ZZ ; intersect(Rays, Settled, Z) ).
+intersect(_, [], 1).
+intersect(Rays, [Brick|Settled], Z) :-
+    ( brick_intersect(Brick, Rays, ZZ) -> Z #= ZZ ; intersect(Rays, Settled, Z) ).
 
-ray_intersect(X-Y, [Brick|Settled], Z) :-
-    rays(Brick, Rays),
-    ( member(X-Y, Rays) -> Brick = _/(_-_-ZZ), Z#=ZZ+1 ; ray_intersect(X-Y, Settled, Z) ).
+brick_intersect(Brick, Rays, Z) :-
+    rays(Brick, BrickRays),
+    member(Ray, Rays),
+    member(Ray, BrickRays),
+    Brick = _/(_-_-ZZ),
+    Z #= ZZ+1.
 
 safe_disintegrate(Settled, Ans) :-
     findall(Z, member(_/(_-_-Z),Settled), HighZs),
@@ -64,15 +66,10 @@ safe_disintegrate([Z|ZT], Bricks, Acc, Ans) :-
     ZZ #= Z+1,
     findall(B, (B=_/(_-_-Z), member(B, Bricks)), SupportingBricks),
     findall(B, (B=(_-_-ZZ)/_, member(B, Bricks)), FallingBricks),
-    findall(B, (
-        select(B, SupportingBricks, Rem),
-        findall(F, (
-            member(F, FallingBricks),
-            intersect(F, [B], ZZ)
-        ), SupportedBricks),
-        maplist(\X^(member(R,Rem),intersect(X,[R],ZZ)), SupportedBricks)
-    ), List),
-    length(List, L),
+    write(SupportingBricks), write(FallingBricks), nl,
+    maplist(\X^Y^(findall(F, (member(F, FallingBricks), intersect(F, [X], ZZ)), Fs), Y=X-Fs), SupportingBricks, BFs),
+    maplist(\X^Y^(X=B-Fs, write(B-Fs),nl, (maplist(\Q^(member(R,SupportingBricks),R\=B,intersect(Q,[R],ZZ)), Fs) -> Y#=1 ; Y#= 0)), BFs, Nums),
+    sum(Nums, #=, L),
     NAcc #= Acc + L,
     safe_disintegrate(ZT, Bricks, NAcc, Ans).
 
