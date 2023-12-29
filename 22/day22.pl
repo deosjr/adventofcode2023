@@ -2,6 +2,7 @@
 :- use_module(library(between)).
 :- use_module(library(charsio)).
 :- use_module(library(lambda)).
+:- use_module(library(ordsets)).
 
 %use_test_input.
 
@@ -10,7 +11,9 @@ run_day(22, Filename) :-
     settle_bricks(Bricks, Settled),
     %write(Settled),nl,
     safe_disintegrate(Settled, Ans1),
-    write_part1(Ans1).
+    write_part1(Ans1),
+    chain_reaction(Settled, Ans2),
+    write_part2(Ans2).
 
 settle_bricks(Bricks, Settled) :-
     qsort(byLowZ, Bricks, Sorted),
@@ -77,11 +80,50 @@ safe_disintegrate([Z|ZT], Bricks, Acc, Ans) :-
     ZZ #= Z+1,
     findall(B, (B=_/(_-_-Z), member(B, Bricks)), SupportingBricks),
     findall(B, (B=(_-_-ZZ)/_, member(B, Bricks)), FallingBricks),
-    maplist(\X^Y^(findall(F, (member(F, FallingBricks), brick_intersect(F, X, ZZ)), Fs), Y=X-Fs), SupportingBricks, BFs),
-    maplist(\X^Y^(X=B-Fs, (maplist(\Q^(member(R,SupportingBricks),R\=B,brick_intersect(Q,R,ZZ)), Fs) -> Y#=1 ; Y#= 0)), BFs, Nums),
+    maplist(\X^Y^(
+        findall(F, (member(F, FallingBricks), brick_intersect(F, X, ZZ)), Fs),
+        Y=X-Fs
+    ), SupportingBricks, BFs),
+    maplist(\X^Y^(
+        X=B-Fs,
+        maplist(\Q^(
+            ((assertz(supports(B,Q)),member(R,SupportingBricks),R\=B,brick_intersect(Q,R,ZZ)) -> true ; assertz(sole_support(B, Q)) )
+        ), Fs),
+        (sole_support(B, _) -> Y#=0 ; Y#= 1)
+    ), BFs, Nums),
     sum(Nums, #=, L),
     NAcc #= Acc + L,
     safe_disintegrate(ZT, Bricks, NAcc, Ans).
+
+% dumb solution first, just follow chain of sole_support for each brick
+% smarter would be to start at leafs of the tree and propagate down (?)
+chain_reaction(Bricks, Ans) :-
+    chain_reaction(Bricks, 0, Ans).
+
+chain_reaction([], X, X).
+chain_reaction([Brick|T], Acc, Ans) :-
+    chain_disintegrate(Brick, N),
+    NAcc #= Acc + N,
+    chain_reaction(T, NAcc, Ans).
+
+chain_disintegrate(Brick, N) :-
+    findall(S, supports(Brick, S), Supports),
+    list_to_ord_set([Brick], Set),
+    chain_brick(Supports, Set, Falling),
+    length(Falling, L),
+    N #= L - 1.
+
+chain_brick(Candidates, Removed, Out) :-
+    findall(Brick, (member(Brick, Candidates), \+ord_memberchk(Brick, Removed), findall(S, supports(S,Brick), Sup), list_to_ord_set(Sup, Set), ord_subset(Set, Removed)), Falling),
+    length(Falling, L),
+    ( L #= 0 -> Out = Removed ;
+    list_to_ord_set(Falling, FallSet),
+    ord_subtract(Candidates, FallSet, RemCandidates),
+    ord_union(FallSet, Removed, NewRemoved),
+    findall(S, (member(F, Falling), supports(F, S), \+ord_memberchk(S, RemCandidates), \+ord_memberchk(S, NewRemoved)), NewCandidates),
+    list_to_ord_set(NewCandidates, NewCandidateSet),
+    ord_union(RemCandidates, NewCandidateSet, NCS),
+    chain_brick(NCS, NewRemoved, Out)).
 
 % From and To are already ordered such that To contains the larger coordinate value
 parse([From/To|T]) --> parse_coord(From), "~", parse_coord(To), "\n", parse(T).
